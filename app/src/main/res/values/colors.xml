@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_primary">#581C87</color>
-    <color name="purple_primary_dark">#3B0D5E</color>
-    <color name="purple_accent">#7C3AED</color>
+    <color name="hermes_light">#f7f7f4</color>
+    <color name="hermes_dark">#1a1a1a</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 </resources>
