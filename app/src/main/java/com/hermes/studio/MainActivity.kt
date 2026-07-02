@@ -1,6 +1,7 @@
 package com.hermes.studio
 
 import android.app.Activity
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -9,6 +10,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
@@ -21,6 +23,11 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -61,6 +68,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize crash logger FIRST
+        CrashLogger.init(this)
+        CrashLogger.log(this, "MainActivity", "onCreate started")
+
         setContentView(R.layout.activity_main)
 
         // Status bar matches Hermes Studio color
@@ -123,6 +135,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
+                CrashLogger.log(this@MainActivity, "WebView", "Page loaded: $url")
             }
         }
 
@@ -161,7 +174,43 @@ class MainActivity : AppCompatActivity() {
             offlineNotice.visibility = View.VISIBLE
         }
 
+        // Long-press offline notice to export logs
+        offlineNotice.setOnLongClickListener {
+            CrashLogger.shareLogs(this)
+            true
+        }
+
         webView.loadUrl(getBaseUrl())
+
+        // === Feature 1: Clipboard Sync ===
+        ClipboardSync.start(this) { webView }
+
+        // === Feature 2: Notification Check (WorkManager) ===
+        scheduleNotificationCheck()
+
+        // === Feature 5: NAS Update Check ===
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode
+        }
+        UpdateChecker.checkOnStart(this, versionCode)
+
+        CrashLogger.log(this, "MainActivity", "onCreate finished")
+    }
+
+    private fun scheduleNotificationCheck() {
+        val workRequest = PeriodicWorkRequestBuilder<MessageCheckWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "hermes_message_check",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -216,6 +265,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        ClipboardSync.stop()
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         connectivityManager.unregisterNetworkCallback(networkCallback)
         webView.destroy()

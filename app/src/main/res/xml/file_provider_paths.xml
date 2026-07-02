@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-path
+        name="downloads"
+        path="Android/data/com.hermes.studio/files/" />
+    <external-files-path
+        name="crash_logs"
+        path="." />
+    <files-path
+        name="exports"
+        path="exports/" />
+</paths>
