@@ -10,6 +10,7 @@ object ClipboardSync {
 
     private var lastClipText: String? = null
     private var clipboardManager: ClipboardManager? = null
+    private var webViewProvider: (() -> WebView?)? = null
 
     private val checkRunnable = object : Runnable {
         override fun run() {
@@ -20,6 +21,7 @@ object ClipboardSync {
     private val handler = Handler(Looper.getMainLooper())
 
     fun start(context: Context, getWebView: () -> WebView?) {
+        webViewProvider = getWebView
         clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         // Record current clipboard so we don't trigger on existing content
         lastClipText = clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()
@@ -35,7 +37,7 @@ object ClipboardSync {
         if (text == lastClipText) return
         lastClipText = text
 
-        val webView = getWebView() ?: return
+        val webView = webViewProvider?.invoke() ?: return
         val escaped = text
             .replace("\\", "\\\\")
             .replace("'", "\\'")

@@ -72,7 +72,6 @@ object UpdateChecker {
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "hermes-studio-update.apk")
             .setAllowedOverMetered(false)
-            .setAllowedOverWifi(true)
 
         val downloadId = downloadManager.enqueue(request)
 
