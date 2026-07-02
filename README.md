@@ -64,3 +64,4 @@ hermes-studio-app/
 ├── settings.gradle.kts
 └── gradle.properties
 ```
+
