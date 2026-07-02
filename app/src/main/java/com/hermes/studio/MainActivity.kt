@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
         offlineNotice = findViewById(R.id.offlineNotice)
         swipeRefresh = findViewById(R.id.swipeRefresh)
 
-        // SwipeRefreshLayout color
+        // SwipeRefreshLayout - only refresh when WebView is at top
         swipeRefresh.setColorSchemeResources(
             android.R.color.holo_blue_bright,
             android.R.color.holo_green_light,
@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh.setOnRefreshListener {
             webView.reload()
         }
+        swipeRefresh.isEnabled = false  // Disable by default, enable only when at top
 
         // Cookie persistence
         CookieManager.getInstance().apply {
@@ -159,6 +160,11 @@ class MainActivity : AppCompatActivity() {
                 )
                 return true
             }
+        }
+
+        // Enable SwipeRefreshLayout only when WebView is at top
+        webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+            swipeRefresh.isEnabled = scrollY == 0
         }
 
         // Register network callback
