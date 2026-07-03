@@ -89,7 +89,6 @@ class MainActivity : AppCompatActivity() {
         drawerLayout = findViewById(R.id.drawerLayout)
         statusIndicator = findViewById(R.id.statusIndicator)
         connectionStatusText = findViewById(R.id.connectionStatusText)
-        navConnectionStatus = findViewById(R.id.connectionStatus)
 
         // Toolbar setup
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
@@ -105,6 +104,8 @@ class MainActivity : AppCompatActivity() {
 
         // Navigation Drawer item clicks
         val navView = findViewById<NavigationView>(R.id.navigationView)
+        val navHeader = navView.getHeaderView(0)
+        navConnectionStatus = navHeader.findViewById(R.id.connectionStatus)
         navView.setNavigationItemSelectedListener { menuItem ->
             drawerLayout.closeDrawers()
             when (menuItem.itemId) {
