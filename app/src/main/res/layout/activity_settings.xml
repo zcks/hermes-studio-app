@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?android:attr/colorBackground">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorSurface"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:title="设置"
+        android:elevation="2dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Server URL -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="服务器地址"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorPrimary"
+                android:layout_marginBottom="4dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/serverUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="默认: http://192.168.31.98:8648"
+                    android:inputType="textUri"
+                    android:singleLine="true" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Dark Mode -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/darkModeSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="深色模式"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp" />
+
+            <!-- Status Bar -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/statusBarSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="状态栏颜色跟随主题"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp"
+                android:checked="true" />
+
+            <!-- Clipboard Sync -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/clipboardSyncSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="剪贴板同步"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp"
+                android:checked="true" />
+
+            <!-- Notification Push -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/notificationSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="通知推送"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp"
+                android:checked="true" />
+
+            <!-- Auto Update Check -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/autoUpdateSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="自动检查更新"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp"
+                android:checked="true" />
+
+            <!-- Landscape Lock -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/landscapeLockSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="横屏锁定"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:minHeight="48dp" />
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Clear Cache -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearCacheBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="清除缓存"
+                android:textSize="16sp"
+                android:layout_marginBottom="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <!-- Clear Cookies -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearCookiesBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="清除 Cookies"
+                android:textSize="16sp"
+                android:layout_marginBottom="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <!-- Clear All Data -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearAllDataBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="清除所有数据"
+                android:textSize="16sp"
+                android:layout_marginBottom="16dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#FF0000"
+                android:textColor="#FF0000" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

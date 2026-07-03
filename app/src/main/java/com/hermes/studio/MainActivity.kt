@@ -1,7 +1,6 @@
 package com.hermes.studio
 
 import android.app.Activity
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -10,7 +9,6 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
@@ -20,13 +18,16 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import java.io.File
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.navigation.NavigationView
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -35,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var offlineNotice: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var drawerLayout: DrawerLayout
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var isOnline = true
 
@@ -69,25 +71,64 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize crash logger FIRST
         CrashLogger.init(this)
         CrashLogger.log(this, "MainActivity", "onCreate started")
 
         setContentView(R.layout.activity_main)
 
-        // Status bar matches Hermes Studio color
-        val nightModeFlags = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
-        val isDarkMode = nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.isAppearanceLightStatusBars = !isDarkMode
-        window.statusBarColor = if (isDarkMode) android.graphics.Color.parseColor("#1a1a1a") else android.graphics.Color.parseColor("#f7f7f4")
+        applyStatusBar()
 
         webView = findViewById(R.id.webview)
         progressBar = findViewById(R.id.progressBar)
         offlineNotice = findViewById(R.id.offlineNotice)
         swipeRefresh = findViewById(R.id.swipeRefresh)
+        drawerLayout = findViewById(R.id.drawerLayout)
 
-        // SwipeRefreshLayout - only refresh when WebView is at top
+        // Toolbar setup
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+
+        val toggle = ActionBarDrawerToggle(
+            this, drawerLayout, toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
+
+        // Navigation Drawer item clicks
+        val navView = findViewById<NavigationView>(R.id.navigationView)
+        navView.setNavigationItemSelectedListener { menuItem ->
+            drawerLayout.closeDrawers()
+            when (menuItem.itemId) {
+                R.id.nav_refresh -> {
+                    webView.reload()
+                    true
+                }
+                R.id.nav_settings -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    true
+                }
+                R.id.nav_about -> {
+                    startActivity(Intent(this, AboutActivity::class.java))
+                    true
+                }
+                R.id.nav_check_update -> {
+                    val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        packageInfo.longVersionCode.toInt()
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageInfo.versionCode
+                    }
+                    UpdateChecker.checkOnStart(this, versionCode)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // SwipeRefreshLayout
         swipeRefresh.setColorSchemeResources(
             android.R.color.holo_blue_bright,
             android.R.color.holo_green_light,
@@ -97,9 +138,8 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh.setOnRefreshListener {
             webView.reload()
         }
-        swipeRefresh.isEnabled = false  // Disable by default, enable only when at top
+        swipeRefresh.isEnabled = false
 
-        // Cookie persistence
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
         }
@@ -118,7 +158,6 @@ class MainActivity : AppCompatActivity() {
             cacheMode = WebSettings.LOAD_DEFAULT
         }
 
-        // Enable third-party cookies
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
         webView.webViewClient = object : WebViewClient() {
@@ -162,25 +201,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Enable SwipeRefreshLayout only when WebView is at top
         webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             swipeRefresh.isEnabled = scrollY == 0
         }
 
-        // Register network callback
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(request, networkCallback)
 
-        // Check initial connectivity
         if (!isNetworkAvailable()) {
             isOnline = false
             offlineNotice.visibility = View.VISIBLE
         }
 
-        // Long-press offline notice to export logs
         offlineNotice.setOnLongClickListener {
             CrashLogger.shareLogs(this)
             true
@@ -188,13 +223,12 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl(getBaseUrl())
 
-        // === Feature 1: Clipboard Sync ===
-        ClipboardSync.start(this) { webView }
+        if (SettingsActivity.isClipboardSyncEnabled(this)) {
+            ClipboardSync.start(this) { webView }
+        }
 
-        // === Feature 2: Notification Check (WorkManager) ===
         scheduleNotificationCheck()
 
-        // === Feature 5: NAS Update Check ===
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
             packageInfo.longVersionCode.toInt()
@@ -202,12 +236,31 @@ class MainActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             packageInfo.versionCode
         }
-        UpdateChecker.checkOnStart(this, versionCode)
+        if (SettingsActivity.isAutoUpdateEnabled(this)) {
+            UpdateChecker.checkOnStart(this, versionCode)
+        }
 
         CrashLogger.log(this, "MainActivity", "onCreate finished")
     }
 
+    private fun applyStatusBar() {
+        val nightModeFlags = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val isDarkMode = nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = !isDarkMode
+
+        if (SettingsActivity.isStatusBarFollowTheme(this)) {
+            window.statusBarColor = if (isDarkMode) {
+                android.graphics.Color.parseColor("#1a1a1a")
+            } else {
+                android.graphics.Color.parseColor("#f7f7f4")
+            }
+        }
+    }
+
     private fun scheduleNotificationCheck() {
+        if (!SettingsActivity.isNotificationEnabled(this)) return
+
         val workRequest = PeriodicWorkRequestBuilder<MessageCheckWorker>(
             15, TimeUnit.MINUTES
         ).build()
@@ -227,6 +280,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getBaseUrl(): String {
+        val customUrl = SettingsActivity.getServerUrl(this)
+        if (customUrl.isNotEmpty()) return customUrl
+
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return PUBLIC_URL
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return PUBLIC_URL
@@ -253,7 +309,9 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
+        if (drawerLayout.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
+            drawerLayout.closeDrawers()
+        } else if (webView.canGoBack()) {
             webView.goBack()
         } else {
             super.onBackPressed()
@@ -263,6 +321,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        applyStatusBar()
     }
 
     override fun onPause() {

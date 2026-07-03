@@ -11,7 +11,7 @@ android {
         applicationId = "com.hermes.studio"
         minSdk = 24
         targetSdk = 34
-        versionCode = 4
+        versionCode = 10300
         versionName = "1.3.0"
     }
 
