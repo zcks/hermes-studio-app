@@ -345,10 +345,16 @@ class MainActivity : AppCompatActivity() {
         val color: Int
         val text: String
 
+        // 获取当前连接的服务器地址，判断是局域网还是公网
+        val networkType = if (status == "connected") {
+            val currentUrl = webView.url ?: ""
+            if (isLocalAddress(currentUrl)) "(局域网)" else "(公网)"
+        } else ""
+
         when (status) {
             "connected" -> {
                 color = android.graphics.Color.parseColor("#4CAF50")
-                text = "🟢 在线"
+                text = "🟢 在线$networkType"
             }
             "connecting" -> {
                 color = android.graphics.Color.parseColor("#FFC107")
@@ -371,7 +377,7 @@ class MainActivity : AppCompatActivity() {
         // Update nav header status
         when (status) {
             "connected" -> {
-                navConnectionStatus.text = "🟢 在线"
+                navConnectionStatus.text = "🟢 在线$networkType"
                 navConnectionStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
             }
             "connecting" -> {
@@ -382,6 +388,33 @@ class MainActivity : AppCompatActivity() {
                 navConnectionStatus.text = "🔴 离线"
                 navConnectionStatus.setTextColor(android.graphics.Color.parseColor("#F44336"))
             }
+        }
+    }
+
+    /**
+     * 判断URL是否是局域网地址
+     * 支持IPv4私有地址段和IPv6链路本地地址
+     */
+    private fun isLocalAddress(url: String): Boolean {
+        try {
+            val host = java.net.URI(url).host ?: return false
+
+            // IPv4 私有地址段
+            if (host.startsWith("192.168.")) return true
+            if (host.startsWith("10.")) return true
+            if (host.startsWith("172.")) {
+                val secondOctet = host.split(".").getOrNull(1)?.toIntOrNull() ?: 0
+                if (secondOctet in 16..31) return true
+            }
+            if (host.startsWith("127.")) return true  // localhost
+
+            // IPv6 链路本地地址
+            if (host.startsWith("fe80:")) return true
+            if (host.startsWith("fc") || host.startsWith("fd")) return true  // ULA
+
+            return false
+        } catch (_: Exception) {
+            return false
         }
     }
 
