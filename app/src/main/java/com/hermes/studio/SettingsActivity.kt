@@ -204,7 +204,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showAddAddressDialog() {
         val input = EditText(this).apply {
-            hint = "例如: http://192.168.1.100:8080"
+            hint = "例如: 192.168.1.100:8080"
             setPadding(64, 32, 64, 32)
         }
 
@@ -240,12 +240,16 @@ class SettingsActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 detectionRunnable?.let { handler.removeCallbacks(it) }
-                val url = s?.toString()?.trim() ?: ""
+                var url = s?.toString()?.trim() ?: ""
                 if (url.isEmpty()) {
                     statusText.text = ""
                     positiveButton.isEnabled = false
                     currentTestUrl = ""
                     return
+                }
+                // Auto-prepend http:// for testing
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    url = "http://$url"
                 }
                 statusText.text = "⏳ 正在检测..."
                 statusText.setTextColor(Color.parseColor("#FF9800"))
@@ -288,8 +292,12 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         positiveButton.setOnClickListener {
-            val url = input.text.toString().trim()
+            var url = input.text.toString().trim()
             if (url.isNotEmpty()) {
+                // Auto-prepend http:// if no scheme
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    url = "http://$url"
+                }
                 addAddressItem(url)
             }
             dialog.dismiss()
