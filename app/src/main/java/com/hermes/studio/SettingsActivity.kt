@@ -295,11 +295,9 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         getPrefs(this).edit().apply {
-            putString(KEY_SERVER_URLS, JSONArray(urls.map { it }.toTypedArray().let { arr ->
-                val ja = JSONArray()
-                urls.forEach { ja.put(it) }
-                ja.toString()
-            })
+            val ja = JSONArray()
+            urls.forEach { ja.put(it) }
+            putString(KEY_SERVER_URLS, ja.toString())
             putBoolean(KEY_AUTO_SELECT, autoSelectSwitch.isChecked)
             putBoolean(KEY_CLIPBOARD_SYNC, clipboardSyncSwitch.isChecked)
             putBoolean(KEY_NOTIFICATION, notificationSwitch.isChecked)
