@@ -1,76 +1,57 @@
-# Hermes Studio App
+# Hermes Studio - Android Client
 
-一个轻量级的 Android WebView 包装器，用于访问 [Hermes Studio](https://github.com/nousresearch/hermes-agent) Web UI。
+Hermes Studio 官方有桌面版和网页版，但没有安卓客户端。这个项目用 WebView 把 Hermes Studio Web UI 包装成一个安卓 App，让你在手机上也能像用原生应用一样使用你的 AI 助手。
 
-## 功能特性
+> Hermes Studio 是 [Hermes Agent](https://github.com/nousresearch/hermes-agent) 的 Web UI，用于管理和使用你的 AI 助手。
 
-### 核心功能
-- 🌐 **WebView 包装** - 原生 Android 应用体验
-- 📱 **多服务器支持** - 可配置多个服务器地址，自动切换
-- 🔄 **智能连接** - WiFi/移动网络自动选择可达的服务器
+## ✨ 功能亮点
 
-### 侧边栏导航
-- 🔄 刷新页面
-- ⚙️ 设置
-- ℹ️ 关于
+- 🌐 **原生体验** — 比浏览器更流畅，全屏沉浸式使用
+- 📱 **多服务器** — 局域网和公网地址并存，自动切换可达的服务器
+- 📋 **剪贴板同步** — 手机复制，电脑粘贴（需服务端配合）
+- 🔔 **消息推送** — 后台定期检查，不错过任何回复
+- 🔄 **自动更新** — 有新版本时自动提示
+- 📱 **横屏锁定** — 平板用户可锁定横屏
+- 📡 **连接状态** — 实时显示服务器连接状态
 
-### 设置选项
-- 📋 剪贴板同步
-- 🔔 通知推送
-- 🔄 自动检查更新
-- 📱 横屏锁定
-- 🗑️ 清除缓存/Cookies/数据
-
-### 其他特性
-- 📥 文件上传支持
-- 🔒 Cookie 持久化
-- 📊 崩溃日志记录
-- 📡 连接状态指示
-
-## 下载
+## 📥 下载
 
 前往 [Releases](https://github.com/zcks/hermes-studio-app/releases) 下载最新 APK。
 
-## 使用说明
+- **最低系统版本**：Android 7.0 (API 24)
+- **目标版本**：Android 14 (API 34)
 
-1. 安装 APK 到 Android 设备
-2. 打开 App，首次会请求网络权限
-3. 进入设置 → 添加你的 Hermes Studio 服务器地址
-4. 支持添加多个地址（如局域网地址和公网地址）
-5. 开启"自动选择"后，App 会自动检测网络并选择可达的服务器
+## 🚀 快速开始
 
-## 配置
+**前提条件**：你需要一个可访问的 Hermes Studio 服务器（自部署或他人提供）。
 
-### 添加服务器地址
-1. 打开侧边栏（左滑或点击左上角菜单）
-2. 点击"设置"
-3. 点击"+ 添加地址"，输入你的服务器地址
-4. 可添加多个地址，支持测试连接
-5. 返回主界面，会自动加载服务器
+1. 安装 APK
+2. 打开侧边栏 → 设置 → 添加服务器地址
+3. 返回主界面，自动加载
 
-## 技术栈
+> 💡 可添加多个地址（如局域网 + 公网），App 会自动选择当前网络下可达的服务器。
 
-- **语言**: Kotlin
-- **最低 SDK**: Android 7.0 (API 24)
-- **目标 SDK**: Android 14 (API 34)
-- **主要依赖**:
-  - AndroidX WebView
-  - Material Design Components
-  - WorkManager (后台任务)
+## ⚙️ 设置说明
 
-## 贡献
+| 功能 | 说明 |
+|------|------|
+| 服务器地址 | 支持添加多个，自动检测可用性 |
+| 自动选择 | 开启后自动切换到可达的服务器 |
+| 剪贴板同步 | 手机端复制内容同步到服务端 |
+| 通知推送 | 后台每15分钟检查一次消息 |
+| 自动更新 | 检查 GitHub Releases 获取新版本 |
+| 横屏锁定 | 强制横屏显示 |
+| 清除数据 | 清除缓存、Cookies 或所有数据 |
 
-欢迎提交 Issue 和 Pull Request！
+## 🛠️ 技术栈
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
+- Kotlin
+- AndroidX WebView + Material Design
+- WorkManager（后台任务）
 
-## 许可证
+## 📄 许可证
 
-本项目采用 [MIT 许可证](LICENSE) - 详见 LICENSE 文件
+[MIT License](LICENSE)
 
 ## 免责声明
 

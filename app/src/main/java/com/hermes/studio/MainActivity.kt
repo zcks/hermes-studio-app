@@ -10,6 +10,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
@@ -43,29 +45,53 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectionStatusText: TextView
     private lateinit var navConnectionStatus: TextView
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
-    private var isOnline = true
     private var isServerReachable = false
+
+    // Network type tracking for WiFi↔mobile switch detection
+    private var currentNetworkType: String = ""
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var networkSwitchRunnable: Runnable? = null
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             runOnUiThread {
-                if (!isOnline) {
-                    isOnline = true
-                    offlineNotice.visibility = View.GONE
-                    webView.loadUrl(getBaseUrl())
-                }
-                updateConnectionStatus()
+                offlineNotice.visibility = View.GONE
+                updateConnectionStatus("connecting")
+                checkAllServersAndLoad()
             }
         }
 
         override fun onLost(network: Network) {
             runOnUiThread {
-                if (isOnline) {
-                    isOnline = false
-                    offlineNotice.visibility = View.VISIBLE
-                    progressBar.visibility = View.GONE
+                isServerReachable = false
+                offlineNotice.visibility = View.VISIBLE
+                progressBar.visibility = View.GONE
+                updateConnectionStatus("error")
+            }
+        }
+
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+            val newType = when {
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+                else -> "other"
+            }
+
+            if (currentNetworkType.isEmpty()) {
+                // First time, just record the type
+                currentNetworkType = newType
+                return
+            }
+
+            if (newType != currentNetworkType) {
+                // Network type changed (WiFi↔mobile), debounce 2s
+                networkSwitchRunnable?.let { mainHandler.removeCallbacks(it) }
+                networkSwitchRunnable = Runnable {
+                    currentNetworkType = newType
+                    updateConnectionStatus("connecting")
+                    checkAllServersAndLoad()
                 }
-                updateConnectionStatus()
+                mainHandler.postDelayed(networkSwitchRunnable!!, 2000)
             }
         }
     }
@@ -76,7 +102,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         CrashLogger.init(this)
         CrashLogger.log(this, "MainActivity", "onCreate started")
 
@@ -211,14 +236,27 @@ class MainActivity : AppCompatActivity() {
             swipeRefresh.isEnabled = scrollY == 0
         }
 
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        // Initialize current network type before registering callback
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork
+        if (activeNetwork != null) {
+            val caps = cm.getNetworkCapabilities(activeNetwork)
+            if (caps != null) {
+                currentNetworkType = when {
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+                    else -> "other"
+                }
+            }
+        }
+
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        connectivityManager.registerNetworkCallback(request, networkCallback)
+        cm.registerNetworkCallback(request, networkCallback)
 
         if (!isNetworkAvailable()) {
-            isOnline = false
+            isServerReachable = false
             offlineNotice.visibility = View.VISIBLE
         }
 
@@ -249,7 +287,60 @@ class MainActivity : AppCompatActivity() {
         CrashLogger.log(this, "MainActivity", "onCreate finished")
     }
 
-    private fun updateConnectionStatus(status: String = if (isOnline) "connected" else "offline") {
+    /**
+     * Check all server addresses and load the first reachable one.
+     * Runs on background thread to avoid blocking UI.
+     */
+    private fun checkAllServersAndLoad() {
+        Thread {
+            val urls = SettingsActivity.getServerUrls(this@MainActivity)
+            if (urls.isEmpty()) {
+                runOnUiThread {
+                    isServerReachable = false
+                    updateConnectionStatus("error")
+                }
+                return@Thread
+            }
+
+            var foundUrl: String? = null
+            if (SettingsActivity.isAutoSelectEnabled(this@MainActivity)) {
+                for (url in urls) {
+                    if (testUrlReachable(url)) {
+                        foundUrl = url
+                        break
+                    }
+                }
+            } else {
+                // Not auto-select: just test the first URL
+                if (testUrlReachable(urls[0])) {
+                    foundUrl = urls[0]
+                }
+            }
+
+            runOnUiThread {
+                if (foundUrl != null) {
+                    isServerReachable = true
+                    val currentUrl = webView.url ?: ""
+                    if (currentUrl != foundUrl) {
+                        webView.loadUrl(foundUrl)
+                    } else {
+                        // Already on the right URL, just update status
+                        updateConnectionStatus("connected")
+                    }
+                } else {
+                    isServerReachable = false
+                    offlineNotice.visibility = View.VISIBLE
+                    progressBar.visibility = View.GONE
+                    updateConnectionStatus("error")
+                }
+            }
+        }.start()
+    }
+
+    private fun updateConnectionStatus(status: String = when {
+        isServerReachable -> "connected"
+        else -> "offline"
+    }) {
         val indicator = statusIndicator.background as? GradientDrawable
         val color: Int
         val text: String
@@ -257,19 +348,19 @@ class MainActivity : AppCompatActivity() {
         when (status) {
             "connected" -> {
                 color = android.graphics.Color.parseColor("#4CAF50")
-                text = "已连接"
+                text = "🟢 在线"
             }
             "connecting" -> {
                 color = android.graphics.Color.parseColor("#FFC107")
-                text = "正在连接"
+                text = "🟡 正在连接"
             }
             "error" -> {
                 color = android.graphics.Color.parseColor("#F44336")
-                text = "连接失败"
+                text = "🔴 离线"
             }
             else -> {
                 color = android.graphics.Color.parseColor("#F44336")
-                text = "离线"
+                text = "🔴 离线"
             }
         }
 
@@ -278,11 +369,20 @@ class MainActivity : AppCompatActivity() {
         connectionStatusText.setTextColor(color)
 
         // Update nav header status
-        navConnectionStatus.text = if (status == "connected") "在线" else "离线"
-        navConnectionStatus.setTextColor(if (status == "connected")
-            android.graphics.Color.parseColor("#4CAF50")
-        else
-            android.graphics.Color.parseColor("#F44336"))
+        when (status) {
+            "connected" -> {
+                navConnectionStatus.text = "🟢 在线"
+                navConnectionStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
+            }
+            "connecting" -> {
+                navConnectionStatus.text = "🟡 正在连接"
+                navConnectionStatus.setTextColor(android.graphics.Color.parseColor("#FFC107"))
+            }
+            else -> {
+                navConnectionStatus.text = "🔴 离线"
+                navConnectionStatus.setTextColor(android.graphics.Color.parseColor("#F44336"))
+            }
+        }
     }
 
     private fun scheduleNotificationCheck() {
@@ -378,6 +478,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         ClipboardSync.stop()
+        networkSwitchRunnable?.let { mainHandler.removeCallbacks(it) }
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         connectivityManager.unregisterNetworkCallback(networkCallback)
         webView.destroy()

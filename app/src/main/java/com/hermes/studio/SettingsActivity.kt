@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.webkit.CookieManager
@@ -17,6 +21,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import org.json.JSONArray
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 
 class SettingsActivity : AppCompatActivity() {
@@ -84,6 +89,24 @@ class SettingsActivity : AppCompatActivity() {
 
         fun isNotificationEnabled(context: Context): Boolean {
             return getPrefs(context).getBoolean(KEY_NOTIFICATION, true)
+        }
+
+        /**
+         * Mask server URL for privacy display.
+         * http://192.168.31.99:8648 → http://192.168.***.***:8648
+         * https://server.lifang.asia:8648 → https://server.***.***:8648
+         */
+        fun maskUrl(url: String): String {
+            try {
+                val uri = URI(url)
+                val host = uri.host ?: return url
+                val parts = host.split(".")
+                if (parts.size >= 2) {
+                    val masked = parts.first() + ".***" + ".***" + parts.drop(2).joinToString("") { ".$it" }
+                    return url.replace(host, masked)
+                }
+            } catch (_: Exception) {}
+            return url
         }
     }
 
@@ -185,17 +208,92 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(64, 32, 64, 32)
         }
 
-        AlertDialog.Builder(this)
+        val statusText = TextView(this).apply {
+            textSize = 14f
+            setPadding(64, 16, 64, 0)
+        }
+
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(input)
+            addView(statusText)
+        }
+
+        val dialog = AlertDialog.Builder(this)
             .setTitle("添加服务器地址")
-            .setView(input)
-            .setPositiveButton("添加") { _, _ ->
-                val url = input.text.toString().trim()
-                if (url.isNotEmpty()) {
-                    addAddressItem(url)
-                }
-            }
+            .setView(dialogLayout)
+            .setPositiveButton("添加", null)
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+
+        dialog.show()
+
+        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        positiveButton.isEnabled = false
+
+        val handler = Handler(Looper.getMainLooper())
+        var detectionRunnable: Runnable? = null
+        var currentTestUrl: String = ""
+
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                detectionRunnable?.let { handler.removeCallbacks(it) }
+                val url = s?.toString()?.trim() ?: ""
+                if (url.isEmpty()) {
+                    statusText.text = ""
+                    positiveButton.isEnabled = false
+                    currentTestUrl = ""
+                    return
+                }
+                statusText.text = "⏳ 正在检测..."
+                statusText.setTextColor(Color.parseColor("#FF9800"))
+                positiveButton.isEnabled = false
+                currentTestUrl = url
+
+                detectionRunnable = Runnable {
+                    if (url != currentTestUrl) return@Runnable
+                    Thread {
+                        val reachable = try {
+                            val conn = URL(url).openConnection() as HttpURLConnection
+                            conn.connectTimeout = 3000
+                            conn.readTimeout = 3000
+                            conn.requestMethod = "HEAD"
+                            conn.connect()
+                            val code = conn.responseCode
+                            conn.disconnect()
+                            code in 200..399
+                        } catch (_: Exception) {
+                            false
+                        }
+                        runOnUiThread {
+                            if (!dialog.isShowing) return@runOnUiThread
+                            if (url != currentTestUrl) return@runOnUiThread
+                            if (reachable) {
+                                statusText.text = "✅ 连接成功，已自动加入"
+                                statusText.setTextColor(Color.parseColor("#4CAF50"))
+                                addAddressItem(url)
+                                dialog.dismiss()
+                            } else {
+                                statusText.text = "❌ 连接失败，仍可手动添加"
+                                statusText.setTextColor(Color.parseColor("#F44336"))
+                                positiveButton.isEnabled = true
+                            }
+                        }
+                    }.start()
+                }
+                handler.postDelayed(detectionRunnable!!, 800)
+            }
+        })
+
+        positiveButton.setOnClickListener {
+            val url = input.text.toString().trim()
+            if (url.isNotEmpty()) {
+                addAddressItem(url)
+            }
+            dialog.dismiss()
+        }
     }
 
     private fun addAddressItem(url: String) {
@@ -219,13 +317,23 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(0, 0, 12, 0)
         }
 
-        // URL text
+        // URL text - display masked URL by default, store full URL in tag
         val urlText = TextView(this).apply {
-            text = url
+            text = maskUrl(url)
+            tag = url  // Store full URL for saving
             textSize = 14f
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             setTextColor(Color.parseColor("#333333"))
             maxLines = 1
+            // Toggle mask on click
+            setOnClickListener {
+                val currentFullUrl = tag as? String ?: return@setOnClickListener
+                if (text.toString().contains("***")) {
+                    text = currentFullUrl
+                } else {
+                    text = maskUrl(currentFullUrl)
+                }
+            }
         }
 
         // Test button
@@ -235,7 +343,8 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(16, 0, 16, 0)
             setTextColor(Color.parseColor("#1976D2"))
             setOnClickListener {
-                testConnection(url, statusIcon)
+                val fullUrl = urlText.tag as? String ?: urlText.text.toString()
+                testConnection(fullUrl, statusIcon)
             }
         }
 
@@ -269,8 +378,8 @@ class SettingsActivity : AppCompatActivity() {
         Thread {
             try {
                 val conn = URL(url).openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
                 conn.requestMethod = "HEAD"
                 conn.connect()
                 val code = conn.responseCode
@@ -291,7 +400,9 @@ class SettingsActivity : AppCompatActivity() {
         for (i in 0 until serverAddressList.childCount) {
             val itemLayout = serverAddressList.getChildAt(i) as LinearLayout
             val urlText = itemLayout.getChildAt(1) as TextView
-            urls.add(urlText.text.toString())
+            // Read full URL from tag (text may be masked)
+            val fullUrl = urlText.tag as? String ?: urlText.text.toString()
+            urls.add(fullUrl)
         }
 
         getPrefs(this).edit().apply {
