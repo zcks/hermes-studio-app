@@ -6,17 +6,15 @@
 
 ### 核心功能
 - 🌐 **WebView 包装** - 原生 Android 应用体验
-- 🔄 **智能 URL 切换** - WiFi 下使用局域网地址，移动网络下使用公网地址
-- 📱 **自定义服务器** - 支持配置自己的 Hermes Studio 地址
+- 📱 **多服务器支持** - 可配置多个服务器地址，自动切换
+- 🔄 **智能连接** - WiFi/移动网络自动选择可达的服务器
 
 ### 侧边栏导航
 - 🔄 刷新页面
 - ⚙️ 设置
 - ℹ️ 关于
-- 🔍 检查更新
 
 ### 设置选项
-- 🌙 深色模式
 - 📋 剪贴板同步
 - 🔔 通知推送
 - 🔄 自动检查更新
@@ -27,41 +25,28 @@
 - 📥 文件上传支持
 - 🔒 Cookie 持久化
 - 📊 崩溃日志记录
-- 🔄 下拉刷新
-- 📡 网络状态检测
+- 📡 连接状态指示
 
 ## 下载
 
-### GitHub Releases
 前往 [Releases](https://github.com/zcks/hermes-studio-app/releases) 下载最新 APK。
-
-### 自行构建
-```bash
-# 克隆仓库
-git clone https://github.com/zcks/hermes-studio-app.git
-cd hermes-studio-app
-
-# 使用 Android Studio 打开项目
-# 或命令行构建
-./gradlew assembleDebug
-```
 
 ## 使用说明
 
 1. 安装 APK 到 Android 设备
 2. 打开 App，首次会请求网络权限
-3. 默认会自动检测网络环境：
-   - WiFi 连接：使用 `http://192.168.31.98:8648`
-   - 移动网络：使用 `http://server.lifang.asia:8648`
-4. 可在设置中自定义服务器地址
+3. 进入设置 → 添加你的 Hermes Studio 服务器地址
+4. 支持添加多个地址（如局域网地址和公网地址）
+5. 开启"自动选择"后，App 会自动检测网络并选择可达的服务器
 
 ## 配置
 
-### 自定义服务器地址
+### 添加服务器地址
 1. 打开侧边栏（左滑或点击左上角菜单）
 2. 点击"设置"
-3. 在"服务器地址"输入框中填写你的 Hermes Studio 地址
-4. 返回主界面，会自动加载新地址
+3. 点击"+ 添加地址"，输入你的服务器地址
+4. 可添加多个地址，支持测试连接
+5. 返回主界面，会自动加载服务器
 
 ## 技术栈
 
@@ -72,26 +57,6 @@ cd hermes-studio-app
   - AndroidX WebView
   - Material Design Components
   - WorkManager (后台任务)
-  - SwipeRefreshLayout
-
-## 项目结构
-
-```
-app/src/main/
-├── java/com/hermes/studio/
-│   ├── MainActivity.kt          # 主界面
-│   ├── SettingsActivity.kt      # 设置页面
-│   ├── AboutActivity.kt         # 关于页面
-│   ├── UpdateChecker.kt         # 更新检测
-│   ├── ClipboardSync.kt         # 剪贴板同步
-│   ├── CrashLogger.kt           # 崩溃日志
-│   └── MessageCheckWorker.kt    # 通知检查
-├── res/
-│   ├── layout/                  # 布局文件
-│   ├── menu/                    # 菜单文件
-│   └── values/                  # 资源文件
-└── AndroidManifest.xml          # 应用配置
-```
 
 ## 贡献
 
@@ -112,9 +77,3 @@ app/src/main/
 - 本应用仅为 WebView 包装器，不包含 Hermes Studio 的任何代码
 - 请确保你有权限访问目标 Hermes Studio 服务器
 - 使用本应用所产生的任何后果由用户自行承担
-
-## 致谢
-
-- [Hermes Agent](https://github.com/nousresearch/hermes-agent) - AI 助手框架
-- [Android WebView](https://developer.android.com/guide/webapps/webview) - 官方文档
-- [Material Design](https://material.io/) - UI 设计指南
