@@ -307,7 +307,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun getBaseUrl(): String {
         val urls = SettingsActivity.getServerUrls(this)
-        if (urls.isEmpty()) return ""
+        if (urls.isEmpty()) return "about:blank"
 
         // If auto-select is enabled, try each URL and return the first reachable one
         if (SettingsActivity.isAutoSelectEnabled(this)) {
