@@ -24,4 +24,13 @@
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
+    <TextView
+        android:id="@+id/connectionStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="在线"
+        android:textSize="14sp"
+        android:textColor="#4CAF50"
+        android:layout_marginTop="4dp" />
+
 </LinearLayout>

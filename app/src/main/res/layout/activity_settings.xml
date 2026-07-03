@@ -27,54 +27,83 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Server URL -->
+            <!-- Group 1: Connection -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="连接"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="8dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Server Address List Container -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="服务器地址"
-                android:textSize="14sp"
-                android:textStyle="bold"
+                android:textSize="16sp"
                 android:textColor="?android:attr/textColorPrimary"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="8dp" />
 
-            <com.google.android.material.textfield.TextInputLayout
+            <LinearLayout
+                android:id="@+id/serverAddressList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                android:orientation="vertical"
+                android:layout_marginBottom="8dp" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/serverUrl"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="默认: http://192.168.31.98:8648"
-                    android:inputType="textUri"
-                    android:singleLine="true" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/addAddressBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="+ 添加地址"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:textColor="#333333" />
 
-            </com.google.android.material.textfield.TextInputLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider"
+                android:layout_marginBottom="12dp"
+                android:layout_marginTop="4dp" />
 
-            <!-- Dark Mode -->
+            <!-- Auto Select Switch -->
             <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/darkModeSwitch"
+                android:id="@+id/autoSelectSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="深色模式"
+                android:text="自动选择"
                 android:textSize="16sp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp"
                 android:minHeight="48dp" />
 
-            <!-- Status Bar -->
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/statusBarSwitch"
-                android:layout_width="match_parent"
+            <!-- Group 2: Features -->
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="状态栏颜色跟随主题"
-                android:textSize="16sp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                android:minHeight="48dp"
-                android:checked="true" />
+                android:text="功能"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="24dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider"
+                android:layout_marginBottom="12dp" />
 
             <!-- Clipboard Sync -->
             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -123,15 +152,36 @@
                 android:paddingBottom="8dp"
                 android:minHeight="48dp" />
 
-            <!-- Divider -->
+            <!-- Group 3: Data Management -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="数据管理"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="24dp" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="?android:attr/listDivider"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="12dp" />
 
-            <!-- Clear Cache -->
+            <!-- Save Settings (Dark) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveSettingsBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="保存设置"
+                android:textSize="16sp"
+                android:layout_marginBottom="8dp"
+                style="@style/Widget.MaterialComponents.Button"
+                app:backgroundTint="#333333"
+                android:textColor="#FFFFFF" />
+
+            <!-- Clear Cache (Gray) -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearCacheBtn"
                 android:layout_width="match_parent"
@@ -139,9 +189,11 @@
                 android:text="清除缓存"
                 android:textSize="16sp"
                 android:layout_marginBottom="8dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#9E9E9E"
+                android:textColor="#9E9E9E" />
 
-            <!-- Clear Cookies -->
+            <!-- Clear Cookies (Gray) -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearCookiesBtn"
                 android:layout_width="match_parent"
@@ -149,9 +201,11 @@
                 android:text="清除 Cookies"
                 android:textSize="16sp"
                 android:layout_marginBottom="8dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#9E9E9E"
+                android:textColor="#9E9E9E" />
 
-            <!-- Clear All Data -->
+            <!-- Clear All Data (Dark Red) -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearAllDataBtn"
                 android:layout_width="match_parent"
@@ -160,8 +214,8 @@
                 android:textSize="16sp"
                 android:layout_marginBottom="16dp"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="#FF0000"
-                android:textColor="#FF0000" />
+                app:strokeColor="#B71C1C"
+                android:textColor="#B71C1C" />
 
         </LinearLayout>
 

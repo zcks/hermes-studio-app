@@ -2,18 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_refresh"
-        android:title="刷新页面" />
+        android:title="刷新页面"
+        android:icon="@android:drawable/ic_menu_rotate" />
     <item
         android:id="@+id/nav_divider"
         android:title=""
         android:enabled="false" />
     <item
         android:id="@+id/nav_settings"
-        android:title="设置" />
+        android:title="设置"
+        android:icon="@android:drawable/ic_menu_manage" />
     <item
         android:id="@+id/nav_about"
-        android:title="关于" />
-    <item
-        android:id="@+id/nav_check_update"
-        android:title="检查更新" />
+        android:title="关于"
+        android:icon="@android:drawable/ic_menu_info_details" />
 </menu>

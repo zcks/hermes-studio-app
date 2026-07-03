@@ -3,6 +3,7 @@ package com.hermes.studio
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -20,7 +21,6 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -28,6 +28,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.navigation.NavigationView
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -37,8 +39,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var offlineNotice: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var drawerLayout: DrawerLayout
+    private lateinit var statusIndicator: View
+    private lateinit var connectionStatusText: TextView
+    private lateinit var navConnectionStatus: TextView
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var isOnline = true
+    private var isServerReachable = false
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -48,6 +54,7 @@ class MainActivity : AppCompatActivity() {
                     offlineNotice.visibility = View.GONE
                     webView.loadUrl(getBaseUrl())
                 }
+                updateConnectionStatus()
             }
         }
 
@@ -58,14 +65,13 @@ class MainActivity : AppCompatActivity() {
                     offlineNotice.visibility = View.VISIBLE
                     progressBar.visibility = View.GONE
                 }
+                updateConnectionStatus()
             }
         }
     }
 
     companion object {
         private const val FILE_CHOOSER_REQUEST_CODE = 100
-        private const val LAN_URL = "http://192.168.31.98:8648"
-        private const val PUBLIC_URL = "http://server.lifang.asia:8648"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,13 +82,14 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        applyStatusBar()
-
         webView = findViewById(R.id.webview)
         progressBar = findViewById(R.id.progressBar)
         offlineNotice = findViewById(R.id.offlineNotice)
         swipeRefresh = findViewById(R.id.swipeRefresh)
         drawerLayout = findViewById(R.id.drawerLayout)
+        statusIndicator = findViewById(R.id.statusIndicator)
+        connectionStatusText = findViewById(R.id.connectionStatusText)
+        navConnectionStatus = findViewById(R.id.connectionStatus)
 
         // Toolbar setup
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
@@ -111,17 +118,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 R.id.nav_about -> {
                     startActivity(Intent(this, AboutActivity::class.java))
-                    true
-                }
-                R.id.nav_check_update -> {
-                    val packageInfo = packageManager.getPackageInfo(packageName, 0)
-                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                        packageInfo.longVersionCode.toInt()
-                    } else {
-                        @Suppress("DEPRECATION")
-                        packageInfo.versionCode
-                    }
-                    UpdateChecker.checkOnStart(this, versionCode)
                     true
                 }
                 else -> false
@@ -169,13 +165,22 @@ class MainActivity : AppCompatActivity() {
                 super.onPageStarted(view, url, favicon)
                 progressBar.visibility = View.VISIBLE
                 swipeRefresh.isRefreshing = false
+                updateConnectionStatus("connecting")
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
+                isServerReachable = true
+                updateConnectionStatus("connected")
                 CrashLogger.log(this@MainActivity, "WebView", "Page loaded: $url")
+            }
+
+            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                super.onReceivedError(view, request, error)
+                isServerReachable = false
+                updateConnectionStatus("error")
             }
         }
 
@@ -243,19 +248,40 @@ class MainActivity : AppCompatActivity() {
         CrashLogger.log(this, "MainActivity", "onCreate finished")
     }
 
-    private fun applyStatusBar() {
-        val nightModeFlags = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
-        val isDarkMode = nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.isAppearanceLightStatusBars = !isDarkMode
+    private fun updateConnectionStatus(status: String = if (isOnline) "connected" else "offline") {
+        val indicator = statusIndicator.background as? GradientDrawable
+        val color: Int
+        val text: String
 
-        if (SettingsActivity.isStatusBarFollowTheme(this)) {
-            window.statusBarColor = if (isDarkMode) {
-                android.graphics.Color.parseColor("#1a1a1a")
-            } else {
-                android.graphics.Color.parseColor("#f7f7f4")
+        when (status) {
+            "connected" -> {
+                color = android.graphics.Color.parseColor("#4CAF50")
+                text = "已连接"
+            }
+            "connecting" -> {
+                color = android.graphics.Color.parseColor("#FFC107")
+                text = "正在连接"
+            }
+            "error" -> {
+                color = android.graphics.Color.parseColor("#F44336")
+                text = "连接失败"
+            }
+            else -> {
+                color = android.graphics.Color.parseColor("#F44336")
+                text = "离线"
             }
         }
+
+        indicator?.setColor(color)
+        connectionStatusText.text = text
+        connectionStatusText.setTextColor(color)
+
+        // Update nav header status
+        navConnectionStatus.text = if (status == "connected") "在线" else "离线"
+        navConnectionStatus.setTextColor(if (status == "connected")
+            android.graphics.Color.parseColor("#4CAF50")
+        else
+            android.graphics.Color.parseColor("#F44336"))
     }
 
     private fun scheduleNotificationCheck() {
@@ -280,16 +306,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getBaseUrl(): String {
-        val customUrl = SettingsActivity.getServerUrl(this)
-        if (customUrl.isNotEmpty()) return customUrl
+        val urls = SettingsActivity.getServerUrls(this)
+        if (urls.isEmpty()) return ""
 
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return PUBLIC_URL
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return PUBLIC_URL
-        return if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            LAN_URL
-        } else {
-            PUBLIC_URL
+        // If auto-select is enabled, try each URL and return the first reachable one
+        if (SettingsActivity.isAutoSelectEnabled(this)) {
+            for (url in urls) {
+                if (testUrlReachable(url)) {
+                    return url
+                }
+            }
+            // If none reachable, return first URL
+            return urls[0]
+        }
+
+        // Otherwise return the first URL
+        return urls[0]
+    }
+
+    private fun testUrlReachable(url: String): Boolean {
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "HEAD"
+            conn.connect()
+            val code = conn.responseCode
+            conn.disconnect()
+            code in 200..399
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -321,7 +367,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
-        applyStatusBar()
+        updateConnectionStatus()
     }
 
     override fun onPause() {

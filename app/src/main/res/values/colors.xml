@@ -4,4 +4,10 @@
     <color name="hermes_dark">#1a1a1a</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="status_connected">#4CAF50</color>
+    <color name="status_connecting">#FFC107</color>
+    <color name="status_error">#F44336</color>
+    <color name="settings_save">#333333</color>
+    <color name="settings_clear">#9E9E9E</color>
+    <color name="settings_danger">#B71C1C</color>
 </resources>
