@@ -1,10 +1,6 @@
 package com.hermes.studio
 
 import android.app.Activity
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
@@ -19,7 +15,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -29,7 +24,6 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.NotificationCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.appbar.MaterialToolbar
@@ -101,59 +95,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val FILE_CHOOSER_REQUEST_CODE = 100
-        private const val NOTIFICATION_CHANNEL_ID = "hermes_reply"
-        private const val NOTIFICATION_ID = 3001
-    }
-
-    /** JavascriptInterface: JS calls this when assistant reply completes */
-    inner class NotificationJsInterface {
-        @JavascriptInterface
-        fun onAssistantReplyComplete(title: String, preview: String) {
-            runOnUiThread {
-                showAssistantNotification(title, preview)
-            }
-        }
-    }
-
-    private fun isAppInForeground(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
-        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return true
-        val now = System.currentTimeMillis()
-        val events = usm.queryEvents(now - 10_000, now)
-        val event = UsageEvents.Event()
-        var lastResume = 0L
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                lastResume = event.timeStamp
-            }
-        }
-        // App is in foreground if it was resumed within the last 10 seconds
-        return lastResume > 0 && (now - lastResume) < 10_000
-    }
-
-    private fun showAssistantNotification(title: String, preview: String) {
-        if (isAppInForeground()) return // Don't notify when app is visible
-
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, "Hermes 助手回复",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Hermes 助手完成回复时通知"
-            }
-            nm.createNotificationChannel(channel)
-        }
-
-        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(preview)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
-            .setAutoCancel(true)
-            .build()
-        nm.notify(NOTIFICATION_ID, notification)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -238,8 +179,6 @@ class MainActivity : AppCompatActivity() {
 
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
-        webView.addJavascriptInterface(NotificationJsInterface(), "AndroidNotify")
-
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                 return false
@@ -259,7 +198,6 @@ class MainActivity : AppCompatActivity() {
                 isServerReachable = true
                 updateConnectionStatus("connected")
                 CrashLogger.log(this@MainActivity, "WebView", "Page loaded: $url")
-                injectReplyNotificationJs()
             }
 
             override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
@@ -553,59 +491,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    private fun injectReplyNotificationJs() {
-        val js = """
-        (function() {
-            if (window.__hermesNotifySetup) return;
-            window.__hermesNotifySetup = true;
-            var debounceTimer = null;
-            var lastText = '';
-            var observer = new MutationObserver(function(mutations) {
-                var container = document.querySelector('.n-message-container');
-                if (!container) return;
-                var msgs = container.querySelectorAll('[role]');
-                var last = msgs[msgs.length - 1];
-                if (!last) return;
-                var role = last.getAttribute('role');
-                if (role !== 'assistant') return;
-                // Check if send button is still disabled (streaming)
-                var sendBtn = document.querySelector('button[disabled]');
-                var isStreaming = sendBtn && sendBtn.matches && sendBtn.matches('[disabled]');
-                // Also check for typing indicator
-                var typingEl = document.querySelector('.typing-indicator, .loading-indicator, .n-spin');
-                if (isStreaming || typingEl) {
-                    // Still generating, reset debounce
-                    clearTimeout(debounceTimer);
-                    lastText = last.innerText || '';
-                    debounceTimer = setTimeout(function() { checkDone(); }, 800);
-                    return;
-                }
-                // Not streaming — might already be done
-                var newText = last.innerText || '';
-                if (newText && newText !== lastText) {
-                    lastText = newText;
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(function() { checkDone(); }, 500);
-                }
-            });
-            function checkDone() {
-                var container = document.querySelector('.n-message-container');
-                if (!container) return;
-                var msgs = container.querySelectorAll('[role]');
-                var last = msgs[msgs.length - 1];
-                if (!last) return;
-                var text = (last.innerText || '').trim();
-                if (!text) return;
-                var preview = text.length > 80 ? text.substring(0, 80) + '...' : text;
-                try {
-                    AndroidNotify.onAssistantReplyComplete('Hermes 助手回复完成', preview);
-                } catch(e) {}
-            }
-            observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-        })();
-        """.trimIndent()
-        webView.evaluateJavascript(js, null)
-    }
+
 
     private fun checkAndReconnect() {
         webView.evaluateJavascript("""

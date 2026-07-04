@@ -3,4 +3,5 @@
     <string name="app_name">Hermes Studio</string>
     <string name="navigation_drawer_open">Open navigation</string>
     <string name="navigation_drawer_close">Close navigation</string>
+    <string name="widget_server_description">服务器监控 Widget - 实时显示 CPU、内存、磁盘使用率</string>
 </resources>
