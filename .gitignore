@@ -16,3 +16,5 @@ local.properties
 .venv
 release-key.p12
 *.p12
+release-key-base64.txt
+.hermes/
