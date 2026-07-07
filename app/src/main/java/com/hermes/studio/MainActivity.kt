@@ -143,10 +143,10 @@ class MainActivity : AppCompatActivity() {
                     override fun onPartialResults(partialResults: android.os.Bundle?) {}
                     override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
                 })
-                val intent = android.content.Intent(android.speech.RecognitionIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(android.speech.RecognitionIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognitionIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(android.speech.RecognitionIntent.EXTRA_LANGUAGE, "zh-CN")
-                    putExtra(android.speech.RecognitionIntent.EXTRA_MAX_RESULTS, 1)
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+                    putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 }
                 recognizer.startListening(intent)
             }
