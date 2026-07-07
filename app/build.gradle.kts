@@ -11,8 +11,8 @@ android {
         applicationId = "com.hermes.studio"
         minSdk = 24
         targetSdk = 34
-        versionCode = 400
-        versionName = "0.4.0"
+        versionCode = 401
+        versionName = "0.4.1"
     }
 
     signingConfigs {

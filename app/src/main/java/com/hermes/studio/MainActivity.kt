@@ -109,28 +109,97 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    inner class VoiceBridge {
+        @JavascriptInterface
+        fun startRecognition() {
+            runOnUiThread {
+                val recognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
+                recognizer.setRecognitionListener(object : android.speech.RecognitionListener {
+                    override fun onReadyForSpeech(params: android.os.Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+                    override fun onError(error: Int) {
+                        val errorMsg = when(error) {
+                            android.speech.SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音"
+                            android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "语音输入超时"
+                            android.speech.SpeechRecognizer.ERROR_AUDIO -> "音频错误"
+                            android.speech.SpeechRecognizer.ERROR_CLIENT -> "客户端错误"
+                            android.speech.SpeechRecognizer.ERROR_SERVER -> "服务端错误"
+                            else -> "语音识别失败 ($error)"
+                        }
+                        webView.evaluateJavascript("window.__onVoiceError?.('$errorMsg')", null)
+                        recognizer.destroy()
+                    }
+                    override fun onResults(results: android.os.Bundle?) {
+                        val matches = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull() ?: ""
+                        // 转义单引号防止JS注入问题
+                        val escapedText = text.replace("\\", "\\\\").replace("'", "\\'")
+                        webView.evaluateJavascript("window.__onVoiceResult?.('$escapedText')", null)
+                        recognizer.destroy()
+                    }
+                    override fun onPartialResults(partialResults: android.os.Bundle?) {}
+                    override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+                })
+                val intent = android.content.Intent(android.speech.RecognitionIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognitionIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognitionIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognitionIntent.EXTRA_LANGUAGE, "zh-CN")
+                    putExtra(android.speech.RecognitionIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                recognizer.startListening(intent)
+            }
+        }
+    }
+
     companion object {
         private const val FILE_CHOOSER_REQUEST_CODE = 100
-        private const val VOICE_INPUT_JS = """(function(){
-try{window.localStorage.setItem('mic_force_mediarecorder','1');}catch(_){}
-var disableSpeechConstructor=function(name){
-  try{Object.defineProperty(window,name,{configurable:true,get:function(){return undefined;},set:function(_){}});}
-  catch(_){try{window[name]=undefined;}catch(_){}}
-};
-disableSpeechConstructor('SpeechRecognition');
-disableSpeechConstructor('webkitSpeechRecognition');
-try{
-if(navigator.mediaDevices&&typeof navigator.mediaDevices.getUserMedia==='function'&&!navigator.mediaDevices.__wrappedGetUserMedia){
-var original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-navigator.mediaDevices.getUserMedia=function(constraints){
-if(constraints&&typeof constraints==='object'&&constraints.audio&&typeof constraints.audio==='object'){
-var clone={};for(var key in constraints.audio){if(key!=='deviceId'&&key!=='groupId')clone[key]=constraints.audio[key];}
-constraints=Object.assign({},constraints,{audio:Object.keys(clone).length?clone:true});
-}return original(constraints);
-};
-navigator.mediaDevices.__wrappedGetUserMedia=true;
-}
-}catch(_){}
+        private const val VOICE_INPUT_JS = """(function() {
+  // 检测是否有 AndroidVoiceBridge（原生App环境）
+  if (!window.AndroidVoiceBridge) return;
+
+  // 监听语音按钮点击
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    // 查找语音录制按钮（麦克风图标按钮）
+    var voiceBtn = target.closest('[data-testid="voice-record-toggle"], .voice-dialogue-controls__toggle, button[aria-label*="voice"], button[aria-label*="Voice"], button[aria-label*="麦克风"], button[aria-label*="语音"]');
+    if (!voiceBtn) return;
+
+    // 如果按钮已经是active状态（正在录音），不拦截
+    if (voiceBtn.classList.contains('active') || voiceBtn.getAttribute('aria-pressed') === 'true') return;
+
+    // 阻止默认行为
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 调用Android原生语音识别
+    window.AndroidVoiceBridge.startRecognition();
+  }, true);
+
+  // 注册回调函数
+  window.__onVoiceResult = function(text) {
+    if (!text) return;
+    // 查找输入框
+    var textarea = document.querySelector('textarea.input-textarea, textarea[placeholder*="message"], textarea');
+    if (textarea) {
+      // 设置值并触发input事件
+      var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      nativeInputValueSetter.call(textarea, text);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+
+  window.__onVoiceError = function(error) {
+    console.error('[Voice]', error);
+    // 显示toast提示
+    var toast = document.createElement('div');
+    toast.textContent = '语音识别: ' + error;
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#f44336;color:white;padding:12px 24px;border-radius:8px;z-index:99999;font-size:14px;';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+  };
 })();"""
     }
 
@@ -215,6 +284,8 @@ navigator.mediaDevices.__wrappedGetUserMedia=true;
         }
 
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
+        webView.addJavascriptInterface(VoiceBridge(), "AndroidVoiceBridge")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
