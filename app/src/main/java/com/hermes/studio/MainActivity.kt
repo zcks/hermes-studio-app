@@ -9,10 +9,12 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
+import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.webkit.PermissionRequest
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
@@ -22,6 +24,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
@@ -43,6 +46,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navConnectionStatus: TextView
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var isServerReachable = false
+    private var pendingAudioPermissionRequest: PermissionRequest? = null
+
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val request = pendingAudioPermissionRequest ?: return@registerForActivityResult
+        pendingAudioPermissionRequest = null
+        if (granted) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+        } else {
+            request.deny()
+        }
+    }
 
     // Network type tracking for WiFi↔mobile switch detection
     private var currentNetworkType: String = ""
@@ -95,6 +111,27 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val FILE_CHOOSER_REQUEST_CODE = 100
+        private const val VOICE_INPUT_JS = """(function(){
+try{window.localStorage.setItem('mic_force_mediarecorder','1');}catch(_){}
+var disableSpeechConstructor=function(name){
+  try{Object.defineProperty(window,name,{configurable:true,get:function(){return undefined;},set:function(_){}});}
+  catch(_){try{window[name]=undefined;}catch(_){}}
+};
+disableSpeechConstructor('SpeechRecognition');
+disableSpeechConstructor('webkitSpeechRecognition');
+try{
+if(navigator.mediaDevices&&typeof navigator.mediaDevices.getUserMedia==='function'&&!navigator.mediaDevices.__wrappedGetUserMedia){
+var original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+navigator.mediaDevices.getUserMedia=function(constraints){
+if(constraints&&typeof constraints==='object'&&constraints.audio&&typeof constraints.audio==='object'){
+var clone={};for(var key in constraints.audio){if(key!=='deviceId'&&key!=='groupId')clone[key]=constraints.audio[key];}
+constraints=Object.assign({},constraints,{audio:Object.keys(clone).length?clone:true});
+}return original(constraints);
+};
+navigator.mediaDevices.__wrappedGetUserMedia=true;
+}
+}catch(_){}
+})();"""
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -174,7 +211,7 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            cacheMode = WebSettings.LOAD_DEFAULT
+            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         }
 
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
@@ -189,6 +226,8 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = View.VISIBLE
                 swipeRefresh.isRefreshing = false
                 updateConnectionStatus("connecting")
+                // Inject document-start JS for voice input compatibility
+                view?.evaluateJavascript(VOICE_INPUT_JS, null)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -208,6 +247,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                request?.let {
+                    val requestedResources = it.resources
+                    if (requestedResources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                        pendingAudioPermissionRequest = it
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        it.deny()
+                    }
+                }
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -490,7 +541,6 @@ class MainActivity : AppCompatActivity() {
         webView.onPause()
         super.onPause()
     }
-
 
 
     private fun checkAndReconnect() {
