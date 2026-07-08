@@ -142,6 +142,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doStartRecognition() {
+        // Check if speech recognition is available on this device
+        if (!android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
+            webView.evaluateJavascript("window.__onVoiceError?.('设备不支持语音识别')", null)
+            return
+        }
+
         val recognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(this)
         recognizer.setRecognitionListener(object : android.speech.RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) {}
@@ -154,12 +160,12 @@ class MainActivity : AppCompatActivity() {
                     android.speech.SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音"
                     android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "语音输入超时"
                     android.speech.SpeechRecognizer.ERROR_AUDIO -> "音频错误"
-                    android.speech.SpeechRecognizer.ERROR_CLIENT -> "客户端错误（请检查系统语音引擎是否已授权）"
+                    android.speech.SpeechRecognizer.ERROR_CLIENT -> "客户端错误（请检查系统语音引擎设置）"
                     android.speech.SpeechRecognizer.ERROR_SERVER -> "服务端错误"
-                    android.speech.SpeechRecognizer.ERROR_NETWORK -> "网络错误"
+                    android.speech.SpeechRecognizer.ERROR_NETWORK -> "网络错误（语音识别需要网络）"
                     android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时"
                     android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "语音引擎繁忙"
-                    android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "权限不足"
+                    android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "权限不足（请授予麦克风权限）"
                     else -> "语音识别失败 ($error)"
                 }
                 webView.evaluateJavascript("window.__onVoiceError?.('${errorMsg.replace("'", "\\'")}')", null)
@@ -179,6 +185,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
             putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(android.speech.RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
         }
         recognizer.startListening(intent)
     }
