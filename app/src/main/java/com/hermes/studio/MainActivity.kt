@@ -127,16 +127,10 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun startRecognition() {
             runOnUiThread {
-                // Check RECORD_AUDIO permission first
-                if (androidx.core.content.ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.RECORD_AUDIO
-                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
-                    pendingVoiceStart = Runnable { doStartRecognition() }
-                    voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                } else {
-                    doStartRecognition()
-                }
+                // Always request permission to ensure it's truly granted
+                // (some devices need this even when checkSelfPermission returns GRANTED)
+                pendingVoiceStart = Runnable { doStartRecognition() }
+                voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
     }
