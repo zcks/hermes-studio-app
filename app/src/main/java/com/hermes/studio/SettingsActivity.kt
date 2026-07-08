@@ -247,9 +247,9 @@ class SettingsActivity : AppCompatActivity() {
                     currentTestUrl = ""
                     return
                 }
-                // Auto-prepend http:// for testing
+                // Auto-prepend https:// for testing
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                    url = "http://$url"
+                    url = "https://$url"
                 }
                 statusText.text = "⏳ 正在检测..."
                 statusText.setTextColor(Color.parseColor("#FF9800"))
@@ -294,9 +294,9 @@ class SettingsActivity : AppCompatActivity() {
         positiveButton.setOnClickListener {
             var url = input.text.toString().trim()
             if (url.isNotEmpty()) {
-                // Auto-prepend http:// if no scheme
+                // Auto-prepend https:// if no scheme
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                    url = "http://$url"
+                    url = "https://$url"
                 }
                 addAddressItem(url)
             }
