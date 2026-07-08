@@ -117,10 +117,24 @@ class MainActivity : AppCompatActivity() {
     private val voicePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted && pendingVoiceStart != null) {
+        if (granted) {
             pendingVoiceStart?.run()
+        } else {
+            // MIUI/HyperOS may not show permission dialog - guide user to settings
+            pendingVoiceStart = null
+            runOnUiThread {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("需要麦克风权限")
+                    .setMessage("语音识别需要麦克风权限。请在设置中手动开启\"录音\"权限后重试。")
+                    .setPositiveButton("去设置") { _, _ ->
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = android.net.Uri.fromParts("package", packageName, null)
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
         }
-        pendingVoiceStart = null
     }
 
     inner class VoiceBridge {
