@@ -259,25 +259,32 @@ class SettingsActivity : AppCompatActivity() {
                 detectionRunnable = Runnable {
                     if (url != currentTestUrl) return@Runnable
                     Thread {
-                        val reachable = try {
-                            val conn = URL(url).openConnection() as HttpURLConnection
-                            conn.connectTimeout = 3000
-                            conn.readTimeout = 3000
-                            conn.requestMethod = "HEAD"
-                            conn.connect()
-                            val code = conn.responseCode
-                            conn.disconnect()
-                            code in 200..399
-                        } catch (_: Exception) {
-                            false
+                        // If no scheme, try HTTPS first, then HTTP
+                        val hasScheme = url.startsWith("http://") || url.startsWith("https://")
+                        var reachable = false
+                        var finalUrl = url
+
+                        if (hasScheme) {
+                            // Has scheme, test directly
+                            reachable = testUrlReachable(url)
+                        } else {
+                            // No scheme, try HTTPS first
+                            finalUrl = "https://$url"
+                            reachable = testUrlReachable(finalUrl)
+                            if (!reachable) {
+                                // HTTPS failed, try HTTP
+                                finalUrl = "http://$url"
+                                reachable = testUrlReachable(finalUrl)
+                            }
                         }
+
                         runOnUiThread {
                             if (!dialog.isShowing) return@runOnUiThread
                             if (url != currentTestUrl) return@runOnUiThread
                             if (reachable) {
-                                statusText.text = "✅ 连接成功，已自动加入"
+                                statusText.text = "✅ 连接成功（${if (finalUrl.startsWith("https")) "HTTPS" else "HTTP"}），已自动加入"
                                 statusText.setTextColor(Color.parseColor("#4CAF50"))
-                                addAddressItem(url)
+                                addAddressItem(finalUrl)
                                 dialog.dismiss()
                             } else {
                                 statusText.text = "❌ 连接失败，仍可手动添加"
@@ -294,8 +301,9 @@ class SettingsActivity : AppCompatActivity() {
         positiveButton.setOnClickListener {
             var url = input.text.toString().trim()
             if (url.isNotEmpty()) {
-                // Auto-prepend https:// if no scheme
+                // Auto-detect scheme if not provided
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    // Will be detected when testing, default to https for now
                     url = "https://$url"
                 }
                 addAddressItem(url)
@@ -429,5 +437,20 @@ class SettingsActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         saveSettings()
+    }
+
+    private fun testUrlReachable(url: String): Boolean {
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "HEAD"
+            conn.connect()
+            val code = conn.responseCode
+            conn.disconnect()
+            code in 200..399
+        } catch (_: Exception) {
+            false
+        }
     }
 }
