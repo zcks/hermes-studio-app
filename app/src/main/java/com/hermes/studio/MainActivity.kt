@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -28,6 +29,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.appbar.MaterialToolbar
@@ -110,48 +112,75 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Audio permission for SpeechRecognizer (separate from WebChromeClient)
+    private var pendingVoiceStart: Runnable? = null
+    private val voicePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingVoiceStart != null) {
+            pendingVoiceStart?.run()
+        }
+        pendingVoiceStart = null
+    }
+
     inner class VoiceBridge {
         @JavascriptInterface
         fun startRecognition() {
             runOnUiThread {
-                val recognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                recognizer.setRecognitionListener(object : android.speech.RecognitionListener {
-                    override fun onReadyForSpeech(params: android.os.Bundle?) {}
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() {}
-                    override fun onError(error: Int) {
-                        val errorMsg = when(error) {
-                            android.speech.SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音"
-                            android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "语音输入超时"
-                            android.speech.SpeechRecognizer.ERROR_AUDIO -> "音频错误"
-                            android.speech.SpeechRecognizer.ERROR_CLIENT -> "客户端错误"
-                            android.speech.SpeechRecognizer.ERROR_SERVER -> "服务端错误"
-                            else -> "语音识别失败 ($error)"
-                        }
-                        webView.evaluateJavascript("window.__onVoiceError?.('$errorMsg')", null)
-                        recognizer.destroy()
-                    }
-                    override fun onResults(results: android.os.Bundle?) {
-                        val matches = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull() ?: ""
-                        // 转义单引号防止JS注入问题
-                        val escapedText = text.replace("\\", "\\\\").replace("'", "\\'")
-                        webView.evaluateJavascript("window.__onVoiceResult?.('$escapedText')", null)
-                        recognizer.destroy()
-                    }
-                    override fun onPartialResults(partialResults: android.os.Bundle?) {}
-                    override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
-                })
-                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
-                    putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                // Check RECORD_AUDIO permission first
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
+                        this@MainActivity, Manifest.permission.RECORD_AUDIO
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    pendingVoiceStart = Runnable { doStartRecognition() }
+                    voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                } else {
+                    doStartRecognition()
                 }
-                recognizer.startListening(intent)
             }
         }
+    }
+
+    private fun doStartRecognition() {
+        val recognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(this)
+        recognizer.setRecognitionListener(object : android.speech.RecognitionListener {
+            override fun onReadyForSpeech(params: android.os.Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onError(error: Int) {
+                val errorMsg = when(error) {
+                    android.speech.SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音"
+                    android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "语音输入超时"
+                    android.speech.SpeechRecognizer.ERROR_AUDIO -> "音频错误"
+                    android.speech.SpeechRecognizer.ERROR_CLIENT -> "客户端错误（请检查系统语音引擎是否已授权）"
+                    android.speech.SpeechRecognizer.ERROR_SERVER -> "服务端错误"
+                    android.speech.SpeechRecognizer.ERROR_NETWORK -> "网络错误"
+                    android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时"
+                    android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "语音引擎繁忙"
+                    android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "权限不足"
+                    else -> "语音识别失败 ($error)"
+                }
+                webView.evaluateJavascript("window.__onVoiceError?.('${errorMsg.replace("'", "\\'")}')", null)
+                recognizer.destroy()
+            }
+            override fun onResults(results: android.os.Bundle?) {
+                val matches = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                val text = matches?.firstOrNull() ?: ""
+                val escapedText = text.replace("\\", "\\\\").replace("'", "\\'")
+                webView.evaluateJavascript("window.__onVoiceResult?.('$escapedText')", null)
+                recognizer.destroy()
+            }
+            override fun onPartialResults(partialResults: android.os.Bundle?) {}
+            override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+        })
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+            putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer.startListening(intent)
     }
 
     companion object {
